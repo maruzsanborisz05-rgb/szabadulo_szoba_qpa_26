@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1d2127">
+<meta name="description" content="Töltsön fel egy képet egy qpázóról.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23577196'/%3E%3Cpath d='M18 30q0-6 6-6h14q7 0 9 7l1 3h34v42H18z' fill='%23ecd6a6' stroke='%239a8253' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Képfeltöltő</title>
+<style>
+/* alap reset (az artifact-keret adta, önálló oldalon nekünk kell) */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+[hidden]{display:none!important}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rubik:wght@500;700&display=swap">
+<style>
+/* Layout: one centered device — a grey bezel with a blue glass screen, upload step first, transfer second, the "3" last */
+:root{
+  --bg:#1d2127;
+  --bezel-hi:#a9abb0;
+  --bezel-lo:#5f6166;
+  --screen:#577196;
+  --screen-edge:#c9d3df;
+  --ink:#f2f5f9;
+  --folder:#ecd6a6;
+  --folder-dark:#c4a873;
+  --folder-line:#9a8253;
+  --paper:#dfe4ec;
+  --mono:"Share Tech Mono","DejaVu Sans Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ui:"Rubik",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:var(--ui);
+  display:flex;align-items:center;justify-content:center;
+  padding-inline:16px;padding-block:24px;box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+.device{
+  width:100%;max-width:620px;
+  aspect-ratio:1218/793;
+  background:linear-gradient(180deg,var(--bezel-hi),var(--bezel-lo));
+  border:3px solid #111;border-radius:7%/10%;
+  padding:4.5%;box-sizing:border-box;
+  box-shadow:0 20px 50px rgba(0,0,0,.5), inset 0 2px 0 rgba(255,255,255,.35);
+}
+.screen{
+  position:relative;width:100%;height:100%;overflow:hidden;
+  container-type:inline-size;
+  background:var(--screen);
+  border:3px solid #15181c;border-radius:3%/4.5%;
+  box-shadow:inset 0 0 0 2px var(--screen-edge);
+}
+/* glass glare stripes */
+.screen::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:5;
+  background:
+    linear-gradient(120deg,transparent 0 18%,rgba(255,255,255,.10) 18% 23%,transparent 23% 27%,rgba(255,255,255,.07) 27% 29%,transparent 29% 62%,rgba(255,255,255,.08) 62% 70%,transparent 70% 74%,rgba(255,255,255,.06) 74% 76%,transparent 76%);
+}
+.view{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s}
+
+/* ---------- upload view ---------- */
+#pick{gap:3.6cqw;text-align:center;padding:0 7cqw}
+#pick p{margin:0;font-family:var(--mono);font-size:4.2cqw;line-height:1.3;letter-spacing:.01em;text-wrap:balance}
+.fine{font-family:var(--mono);font-size:max(9px,2.7cqw);line-height:1.35;opacity:.75;text-align:center;padding:0 6cqw;text-wrap:balance}
+.fine a{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+.fine a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#result .fine{opacity:0;transition:opacity .5s .4s}
+#result.show .fine{opacity:.85}
+.btn{
+  font-family:var(--ui);font-weight:700;font-size:5cqw;
+  color:#2d2618;background:var(--folder);
+  border:3px solid var(--folder-line);border-radius:2cqw;
+  padding:2.6cqw 6cqw;cursor:pointer;
+  box-shadow:0 1cqw 0 var(--folder-line);
+  display:inline-flex;align-items:center;gap:2.4cqw;
+}
+.btn:active{transform:translateY(.8cqw);box-shadow:0 .2cqw 0 var(--folder-line)}
+.btn:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.btn svg{width:6cqw;height:6cqw}
+#file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+/* ---------- transfer view ---------- */
+.folder{position:absolute;top:13%;width:28%;display:flex;flex-direction:column;align-items:center}
+.folder svg{width:100%;height:auto;overflow:visible}
+.folder span{font-family:var(--mono);font-size:4.4cqw;margin-top:1.5cqw;white-space:nowrap;max-width:34cqw;overflow:hidden;text-overflow:ellipsis}
+#src{left:7%}
+#dst{right:6%;width:24%;top:15%;align-items:flex-end}
+#dst span{font-size:4cqw;max-width:none}
+.bar{
+  position:absolute;left:10%;width:62%;top:63%;height:7.5%;
+  background:#fff;border:3px solid #1b1e22;border-radius:1.6cqw;overflow:hidden;box-sizing:border-box;
+}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(180deg,#7fd36a,#3f9f2f)}
+.pct{position:absolute;right:8%;top:62%;font-family:var(--mono);font-size:5cqw;font-variant-numeric:tabular-nums}
+.eta{position:absolute;left:4%;top:78%;font-family:var(--mono);font-size:4.6cqw;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+.paper{
+  position:absolute;left:21%;top:20%;width:9cqw;height:11cqw;
+  background:var(--paper);border:2px solid #9aa6b6;border-radius:2px;
+  opacity:0;z-index:2;
+  animation:fly 1.5s linear infinite;
+}
+.paper:nth-of-type(2){animation-delay:.5s}
+.paper:nth-of-type(3){animation-delay:1s}
+@keyframes fly{
+  0%  {opacity:0;transform:translate(0,0) rotate(-20deg)}
+  10% {opacity:1}
+  50% {transform:translate(25cqw,-9cqw) rotate(15deg)}
+  88% {opacity:1}
+  100%{opacity:0;transform:translate(52cqw,4cqw) rotate(40deg)}
+}
+#transfer.done .paper{animation:none;opacity:0}
+
+/* ---------- result view ---------- */
+#result{gap:1cqw}
+#result b{
+  font-family:var(--mono);font-weight:400;font-size:32cqw;line-height:1;
+  text-shadow:0 1.2cqw 0 rgba(0,0,0,.25);
+  transform:scale(.6);opacity:0;transition:transform .6s cubic-bezier(.2,1.6,.4,1),opacity .4s;
+}
+#result.show b{transform:scale(1);opacity:1}
+
+@media (prefers-reduced-motion:reduce){
+  .paper{animation:none;opacity:0}
+  #result b{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="screen">
+
+    <!-- 1. kép kiválasztása -->
+    <div class="view" id="pick">
+      <p>Kolléga! Maga nem is <span style="white-space:nowrap">SPOT-os!</span> De egy jó képe biztos van egy qpázóról, kérem töltse fel!</p>
+      <label class="btn" for="file" tabindex="0" id="pickBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
+        Kép kiválasztása
+      </label>
+      <input type="file" id="file" accept="image/*">
+      <small class="fine">A képeket semmilyen módon nem tároljuk és nem is tesszük közzé.</small>
+    </div>
+
+    <!-- 2. kamu feltöltés -->
+    <div class="view" id="transfer" hidden>
+      <div class="folder" id="src">
+        <svg viewBox="0 0 110 78" aria-hidden="true">
+          <path d="M3 8 Q3 3 8 3 H24 Q30 3 32 9 L33 12 H90 V75 H3 Z" fill="#ecd6a6" stroke="#9a8253" stroke-width="3" stroke-linejoin="round"/>
+          <rect x="22" y="2" width="30" height="40" rx="1.5" fill="#dfe4ec" stroke="#9aa6b6" stroke-width="2" transform="rotate(-35 37 22)"/>
+          <rect x="40" y="0" width="30" height="40" rx="1.5" fill="#e8ecf2" stroke="#9aa6b6" stroke-width="2" transform="rotate(-30 55 20)"/>
+          <path d="M18 33 H107 L92 75 H3 Z" fill="#c4a873" fill-opacity=".92" stroke="#9a8253" stroke-width="3" stroke-linejoin="round"/>
+        </svg>
+        <span id="srcName">QPA csapat</span>
+      </div>
+      <div class="folder" id="dst">
+        <svg viewBox="0 0 100 74" aria-hidden="true">
+          <path d="M3 8 Q3 3 8 3 H20 Q27 3 29 9 L30 12 H97 V71 H3 Z" fill="#ecd6a6" stroke="#9a8253" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M3 14 H97" stroke="#9a8253" stroke-width="3"/>
+        </svg>
+        <span>spot.sch.bme.hu</span>
+      </div>
+      <div class="paper"></div><div class="paper"></div><div class="paper"></div>
+      <div class="bar"><i id="fill"></i></div>
+      <div class="pct" id="pct">0%</div>
+      <div class="eta" id="eta">Becsült idő: 5d 21hr 17m 23s</div>
+    </div>
+
+    <!-- 3. eredmény -->
+    <div class="view" id="result" hidden aria-live="polite">
+      <b>3</b>
+      <small class="fine">A SPOT QPA idején készített képeit megtaláljátok a <a href="https://spot.sch.bme.hu" target="_blank" rel="noopener">spot.sch.bme.hu</a>-n</small>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const file = $('file'), pick = $('pick'), transfer = $('transfer'), result = $('result');
+  const fill = $('fill'), pct = $('pct'), eta = $('eta');
+  const DURATION = 9000;                 // ms, a teljes kamu feltöltés hossza
+  const START_SECS = 5*86400 + 21*3600 + 17*60 + 23;
+  let running = false;
+
+  $('pickBtn').addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); }
+  });
+
+  file.addEventListener('change', () => {
+    const f = file.files && file.files[0];
+    if (!f || running) return;
+    running = true;
+    pick.hidden = true;
+    transfer.hidden = false;
+    run();
+  });
+
+  // Akadozó haladás: gyors eleje, megállások, lassú vége
+  const stops = [[0,0],[.12,.18],[.22,.21],[.35,.47],[.48,.52],[.6,.74],[.72,.86],[.86,.97],[.94,.99],[1,1]];
+  function progressAt(t){
+    for (let i=1;i<stops.length;i++){
+      const [t0,p0]=stops[i-1],[t1,p1]=stops[i];
+      if (t<=t1){ const k=(t-t0)/(t1-t0); return p0+(p1-p0)*k; }
+    }
+    return 1;
+  }
+  function fmt(s){
+    s = Math.max(0, Math.round(s));
+    const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60), sec = s%60;
+    return (d?d+'d ':'') + (d||h?h+'hr ':'') + (d||h||m?m+'m ':'') + sec + 's';
+  }
+
+  function run(){
+    const t0 = performance.now();
+    let lastEta = 0, etaVal = START_SECS;
+    function frame(now){
+      const t = Math.min(1,(now-t0)/DURATION);
+      const p = progressAt(t);
+      fill.style.width = (p*100).toFixed(2)+'%';
+      pct.textContent = Math.floor(p*100)+'%';
+      if (now-lastEta > 280){                       // a becsült idő ugrál, ahogy illik
+        lastEta = now;
+        const base = START_SECS*Math.pow(1-p,3);
+        etaVal = base*(0.6+Math.random()*0.9);
+        eta.textContent = 'Becsült idő: ' + fmt(etaVal);
+      }
+      if (t<1) requestAnimationFrame(frame);
+      else finish();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finish(){
+    pct.textContent = '100%';
+    eta.textContent = 'Becsült idő: 0s';
+    transfer.classList.add('done');
+    setTimeout(() => {
+      transfer.style.opacity = '0';
+      setTimeout(() => {
+        transfer.hidden = true;
+        result.hidden = false;
+        requestAnimationFrame(() => requestAnimationFrame(() => result.classList.add('show')));
+      }, 500);
+    }, 700);
+  }
+})();
+</script>
+</body>
+</html>
